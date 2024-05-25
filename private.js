@@ -105,20 +105,16 @@ const getRange = (numCPUs, MIN_PRIVATE_KEY, MAX_PRIVATE_KEY) => {
       }
     });
 
-    range(0, numCPUs, 1).forEach(i => {
-      let process = blessed.text({
+     let process = blessed.text({
         top: 6 + (i * 2),
         left: 0,
         width: '100%',
         height: 'shrink',
-        content: `Wallet Check: [CPU ${i + 1}] `,
+        content: `Wallet Check: [CPU 1] `,
         style: {
           fg: 'yellow'
         }
       });
-      lines[`${i + 1}`] = process;
-      screen.append(process);
-    })
 
     let box = blessed.box({
       top: 7 + (numCPUs * 2),
@@ -134,6 +130,7 @@ const getRange = (numCPUs, MIN_PRIVATE_KEY, MAX_PRIVATE_KEY) => {
     screen.append(status);
     screen.append(result);
     screen.append(box);
+    screen.append(process);
     screen.render();
 
     cluster.on('message', (worker, message) => {
@@ -146,7 +143,7 @@ const getRange = (numCPUs, MIN_PRIVATE_KEY, MAX_PRIVATE_KEY) => {
 
       result.setContent(`Result:       Total: ${counts} | Found: ${founds}`);
 
-      lines[worker.id].setContent(`Wallet Check: [CPU ${worker.id}] ${message.address} | ${message.privateKey} | ${message.balance} NIM`)
+      process.setContent(`Wallet Check: [CPU ${worker.id}] ${message.address} | ${message.privateKey} | ${message.balance} NIM`)
 
       screen.render();
     });
