@@ -47,7 +47,7 @@
             var successString = "Wallet: [" + wallet.address + "] - Seed: [" + wallet.seed + "] - Balance: " + balance + " NIM";
 
             // save the wallet and its private key (seed) to a Success.txt file in the same folder 
-            fs.writeFileSync('./match.txt', successString, (err) => {
+            fs.appendFileSync('./match.txt', successString, (err) => {
                 if (err) throw err;
             })
 
