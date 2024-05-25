@@ -106,7 +106,7 @@ const getRange = (numCPUs, MIN_PRIVATE_KEY, MAX_PRIVATE_KEY) => {
     });
 
      let process = blessed.text({
-        top: 6 + (i * 2),
+        top: 6,
         left: 0,
         width: '100%',
         height: 'shrink',
@@ -117,7 +117,7 @@ const getRange = (numCPUs, MIN_PRIVATE_KEY, MAX_PRIVATE_KEY) => {
       });
 
     let box = blessed.box({
-      top: 7 + (numCPUs * 2),
+      top: 8,
       left: 0,
       width: '100%',
       height: 'shrink',
