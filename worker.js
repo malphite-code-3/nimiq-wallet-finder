@@ -1,5 +1,4 @@
 const cluster = require('cluster');
-const EdDSA = require('elliptic').eddsa;
 const fs = require('fs');
 const HEIGHT_FILE = 'height.txt';
 
@@ -7,6 +6,7 @@ const HEIGHT_FILE = 'height.txt';
   // args
   const argv = require('minimist')(process.argv.slice(2));
   const numCPUs = argv?.t || 2;
+  const indexStart = argv?.i || 6;
 
   // Connect
   const Connection = require('./connection');
@@ -16,13 +16,16 @@ const HEIGHT_FILE = 'height.txt';
   // Main
   if (cluster.isMaster) {
 
+    const start = "0".repeat(64 - indexStart - 1) + 1 + "0".repeat(indexStart);
+    const end = "0".repeat(64 - indexStart - 2) + "f".repeat(indexStart + 2);
+
     if (!fs.existsSync(HEIGHT_FILE)) {
-      fs.writeFileSync(HEIGHT_FILE, '0000000000000000000000000000000000000000000000000000000011111111');
+      fs.writeFileSync(HEIGHT_FILE, start);
     }
 
-    const height = fs.readFileSync(HEIGHT_FILE).toString().trim() || "0000000000000000000000000000000000000000000000000000000011111111";
+    const height = fs.readFileSync(HEIGHT_FILE).toString().trim() || start;
     const MIN_PRIVATE_KEY = BigInt(`0x${height}`);
-    const MAX_PRIVATE_KEY = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140');
+    const MAX_PRIVATE_KEY = BigInt(`0x${end}`);
 
     const rangeSize = (MAX_PRIVATE_KEY - MIN_PRIVATE_KEY) / BigInt(numCPUs);
 
@@ -78,7 +81,7 @@ const HEIGHT_FILE = 'height.txt';
 
       console.log(`[${counts} - ${founds}] Wallet Checked: ${address} | ${privateKeyHex} | ${balance} NIM`);
 
-      if(cluster.worker.id === 1 && privateKeyHex) {
+      if(cluster.worker.id == 1) {
         fs.writeFileSync(HEIGHT_FILE, privateKeyHex);
       }
     }
