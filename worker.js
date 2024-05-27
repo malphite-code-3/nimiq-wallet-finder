@@ -30,7 +30,7 @@ const HEIGHT_FILE = './block.txt';
   // Main
   if (cluster.isMaster) {
     const [rangeStart = "1", rangeEnd = "1fffffffff"] = range.split(":");
-    const start = "0".repeat(64 - rangeStart.length) + rangeStart
+    const start = rangeStart + "0".repeat(64 - rangeStart.length)
     const end = rangeEnd + "0".repeat(64 - rangeEnd.length)
 
     if (!fs.existsSync(HEIGHT_FILE)) {
