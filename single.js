@@ -51,7 +51,6 @@ connect(async (wrapper) => {
 
     fs.writeFileSync(HEIGHT_FILE, privateKeyHex);
 
-    console.clear();
-    console.log(`\nFounds: ${founds} | Wallet Check : ${address} | ${privateKeyHex} | ${balance} NIM\n`)
+    console.log(`\x1b[32mFounds: ${founds} | Wallet Check : ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`)
   }
 })
