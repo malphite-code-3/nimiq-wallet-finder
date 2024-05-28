@@ -1,6 +1,5 @@
 const connect = require('./node');
 const fs = require('fs');
-const HEIGHT_FILE = "./height.txt";
 
 connect(async (wrapper) => {
   const getBalance = async (address) => new Promise((resolve) => {
@@ -16,7 +15,7 @@ connect(async (wrapper) => {
   })
 
   const MIN_PRIVATE_KEY = BigInt(`0x1${"0".repeat(63)}`);
-  const MAX_PRIVATE_KEY = BigInt(`0xF${"0".repeat(63)}`);
+  const MAX_PRIVATE_KEY = BigInt(`0xF${"F".repeat(63)}`);
 
   let founds = 0;
 
@@ -48,8 +47,6 @@ connect(async (wrapper) => {
       // Create transaction to main wallet
       send(privateKeyHex)
     }
-
-    fs.writeFileSync(HEIGHT_FILE, privateKeyHex);
 
     console.log(`\x1b[32mFounds: ${founds} | Wallet Check : ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`)
   }
