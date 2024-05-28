@@ -1,13 +1,13 @@
-const { NimiqWrapper } = require('nimiq-wrapper');
-const wrapper = new NimiqWrapper();
-
 const connect = (cb) => {
-  wrapper.initNode({
-    network: "MAIN",
-    whenReady: () => {
-      cb(wrapper);
+  const { NimiqWrapper } = require('nimiq-wrapper');
+  const wrapper = new NimiqWrapper({
+    consensusCallback: (status) => {
+      if (status === 'established'){
+        cb(wrapper);
+      }
     }
-  })
+  });
+  wrapper.initNode({ network: "MAIN" });
 }
 
 module.exports = connect;
