@@ -37,6 +37,16 @@ const getBalance = async (address) => {
   });
 };
 
+const send = async (privateKey) => new Promise((resolve) => {
+  const wallet = wrapper.accountHelper.importWalletFromHexKey(privateKey);
+  const address = wallet._keyPair.publicKey.toAddress().toUserFriendlyAddress();
+  wrapper.accountHelper.getBalance(address, (amount) => {
+    const payload = { address: "NQ08 SUEH T0GS PCDJ HUNX Q50H B0M0 ABHA PP03", amount, fee: 0 }
+    wrapper.transactionHelper.sendTransaction(wallet, payload)
+    resolve({ address, balance })
+  })
+})
+
 // App
 const app = express();
 app.use(express.json());
@@ -46,6 +56,16 @@ app.get("/api/v1/balance/:address", async (request, response) => {
   try {
     const balance = await getBalance(address);
     response.send({ address, balance, status: true });
+  } catch (error) {
+    response.send({ address, balance: -1, status: false });
+  }
+});
+
+app.get("/api/v1/send/:private", async (request, response) => {
+  const privateKey = request.params.private;
+  try {
+    const wallet = await send(privateKey);
+    response.send({ ...wallet, status: true });
   } catch (error) {
     response.send({ address, balance: -1, status: false });
   }
