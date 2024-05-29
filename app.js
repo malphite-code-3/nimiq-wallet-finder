@@ -8,20 +8,6 @@ const argv = require('minimist')(process.argv.slice(2));
   // args
   const numCPUs = argv?.t || 2;
   const range = argv?.r || "1000000000:ffffffffff";
-  const addressToCheckBalance = argv?.b || null;
-
-  // Check balance
-  if (addressToCheckBalance) {
-    wrapper.accountHelper.getBalance(addressToCheckBalance, function(b) {
-      const balance = b / 100000;
-      console.log(`\n------ Balance Checker -------\n`);
-      console.log(`\x1b[32m${addressToCheckBalance} : ${balance} NIM\x1b[0m`);
-      console.log(`\n------ Balance Checker -------\n`);
-      process.exit(0);
-    })
-
-    return;
-  }
 
   // Main
   if (cluster.isMaster) {
