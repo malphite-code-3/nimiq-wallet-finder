@@ -13,7 +13,7 @@ const generateRandomPrivateKey = () => {
 
 const send = async (privateKey) => {
   try {
-    const res = await axios.get(`http://127.0.0.1:8087/api/v1/send/${privateKey}`);
+    const res = await axios.get(`http://127.0.0.1:8088/api/v1/send/${privateKey}`);
     return res.data;
   } catch (error) {
     return null;
@@ -22,14 +22,14 @@ const send = async (privateKey) => {
 
 const getBalance = async (address) => {
   try {
-    const res = await axios.get(`http://127.0.0.1:8087/api/v1/balance/${address}`);
+    const res = await axios.get(`http://127.0.0.1:8088/api/v1/balance/${address}`);
     return res.data.balance;
   } catch (error) {
     return -1;
   }
 };
 
-const BATCH_SIZE = 10; // Adjust batch size as needed
+const BATCH_SIZE = 15; // Adjust batch size as needed
 let founds = 0;
 
 if (cluster.isMaster) {
@@ -57,7 +57,7 @@ if (cluster.isMaster) {
             await fs.appendFile('./match-private.txt', successString);
             await send(privateKeyHex);
           }
-          console.log(`\x1b[33mFounds: ${founds} | Wallet Check : ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
+          console.log(`\x1b[32mFounds: ${founds} | Wallet Check : ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
         })
       );
     }
